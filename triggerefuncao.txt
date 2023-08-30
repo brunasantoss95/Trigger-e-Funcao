@@ -1,0 +1,130 @@
+EXERCÍCIOS
+
+--TABELA CLIENTE
+create table cliente (cod_cli number(10), nome varchar2(100) , vlr_renda number (12,2),
+    constraint cli_pk primary key (cod_cli));
+
+insert into cliente (cod_cli, nome, vlr_renda) values (1, 'Joana', 200);
+insert into cliente (cod_cli, nome, vlr_renda) values (2, 'Pedro', 300);
+insert into cliente (cod_cli, nome, vlr_renda) values (3, 'Josefa', 400);
+insert into cliente (cod_cli, nome, vlr_renda) values (4, 'Marga', 500);
+insert into cliente (cod_cli, nome, vlr_renda) values (5, 'Otília', 100);
+insert into cliente (cod_cli, nome, vlr_renda) values (6, 'Genoveva', 20);
+
+--TABELA CARRO
+create table carro (cod_carro number(5), nome_carro varchar2(100), num_portas number(2), cod_montadora number(5),
+    constraint carro_pk primary key (cod_carro));
+
+insert into carro values (1, 'Fuca',5, 1);
+insert into carro values (2, 'Kombi',5, 1);
+insert into carro values (3, 'Idea',5, 2);
+insert into carro values (4, 'Uno',5, 2);
+insert into carro values (5, 'Yaris',5, 4);
+insert into carro values (6, 'Corolla',5, 4);
+insert into carro values (7, 'Civic',5, 5);
+
+--TABELA CLIENTE CARRO
+create table cliente_carro (cod_cli number(10), cod_carro number(5), valor number(12,2),
+    constraint cliente_carro_pk primary key (cod_carro, cod_cli),
+    constraint cli_carro_fk foreign key (cod_carro) references carro(cod_carro),
+    constraint cli_carro2_fk foreign key (cod_cli) references cliente(cod_cli));
+
+insert into cliente_carro (cod_cli, cod_carro, valor) values (1, 7, 25.000);
+insert into cliente_carro (cod_cli, cod_carro, valor) values (2, 6, 35.000);
+
+--TABELA LOG
+create table log_informacao (cod_info number(5), descricao varchar2(100));
+select * from log_informacao;
+
+/*Exercício :
+Na tabela cliente_carro criar uma trigger que irá chamar duas funções;
+--> uma função que retorna o nome do carro
+--> uma função que retorna o nome do cliente.
+
+Inserir na tabela log_informacao  o retorno das informações.*/
+
+--FUNÇÃO DENTRO DA TRIGGER
+
+--Função Carro
+create or replace function fnc_carro (p_codigo in number)
+return varchar2
+is
+ v_nome_carro varchar2(100);
+   begin
+     select nome_carro into v_nome_carro from carro
+     where cod_carro = p_codigo;
+     return(v_nome_carro);  - -retorna a variavel que declarei
+  end;
+
+--Função Cliente
+create or replace function fnc_cliente (p_codigo in number)
+return varchar2
+is
+ v_nome_cliente varchar2(100);
+   begin
+     select nome into v_nome_cliente from cliente
+     where cod_cli = p_codigo;
+     return(v_nome_cliente);
+  end;
+
+--TRIGGER
+create or replace trigger  trg_cliente_carro
+before insert or update
+    on cliente_carro for each row
+begin
+    declare v_nome_carro varchar2(100);
+	    v_nome_cliente varchar2(100); –posso colocar as variáveis todas no mesmo declare
+
+   begin
+        v_nome_carro := fnc_carro(:new.cod_carro) ; –aqui atribuo a função com :new.  + o codigo que quero puxar
+        insert into log_informacao values (1, v_nome_carro);
+
+		v_nome_cliente := fnc_cliente(:new.cod_cli) ;
+        insert into log_informacao values (1, v_nome_cliente);
+
+    end;
+end;
+
+select * from log_informacao;
+
+
+-- Utilizando a tabela Cliente_Carro faça uma função que retorne a quantidade de carros de um determinado cliente.
+create or replace function fnc_qtd_carros (p_codigo in number)
+return varchar2
+is
+    cursor c_qtd_carros is
+    select count(1) contador
+    from cliente_carro
+    where cliente_carro.cod_cli = p_codigo;
+	r_qtd_carros c_qtd_carros%rowtype;
+begin
+    open c_qtd_carros;
+	fetch c_qtd_carros into r_qtd_carros;
+	close c_qtd_carros;
+return (r_qtd_carros.contador);
+
+	exception
+		when others then
+			raise_application_error(-20200, 'Erro inesperado');
+end;
+
+select fnc_qtd_carros(2) from dual; 
+
+-- Utilizando a tabela Cliente_Carro faça uma função que retorne o valor mais alto de um carro e o nome do cliente a que ele pertence.
+-- Utilizando a tabela Cliente_Carro faça uma função que retorne o valor mais alto de um carro e o nome do cliente a que ele pertence.
+create or replace function fnc_carro_max
+return varchar2
+is
+    v_valor number(12,2);
+	v_nome varchar2(100);
+begin
+select max(valor) into v_valor from cliente_carro; 
+select nome into v_nome from cliente_carro, cliente
+    where cliente_carro.valor = v_valor
+    and cliente_carro.cod_cli = cliente.cod_cli;
+return(v_valor||v_nome);
+
+end;
+
+select fnc_carro_max from dual; 
+select * from log_informacao;
